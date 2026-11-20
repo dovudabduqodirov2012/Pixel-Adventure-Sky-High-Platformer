@@ -1,0 +1,2435 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Pixel Adventure — Sky High Platformer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    /* Piksel uslubidagi shrift va kanvas sozlamalari */
+    :root {
+      --pixel-font: 'Press Start 2P', monospace;
+      --ui-font: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #0f172a;
+      font-family: var(--ui-font);
+      overflow-x: hidden;
+    }
+
+    .pixel-text {
+      font-family: var(--pixel-font);
+      text-shadow:
+        0 3px 0 #1e293b,
+        -2px -2px 0 #1e293b,
+        2px -2px 0 #1e293b,
+        -2px 2px 0 #1e293b,
+        2px 2px 0 #1e293b;
+      letter-spacing: 0.04em;
+    }
+
+    .pixel-hud-shadow {
+      text-shadow:
+        0 2px 0 rgba(15, 23, 42, 0.9),
+        -1.5px -1.5px 0 rgba(15, 23, 42, 0.9),
+        1.5px -1.5px 0 rgba(15, 23, 42, 0.9),
+        -1.5px 1.5px 0 rgba(15, 23, 42, 0.9),
+        1.5px 1.5px 0 rgba(15, 23, 42, 0.9);
+    }
+
+    .game-frame {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      max-height: 76vh;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow:
+        0 25px 60px -12px rgba(2, 6, 23, 0.75),
+        0 0 0 3px rgba(255, 255, 255, 0.14);
+      background: #4ab3f4;
+    }
+
+    canvas#gameCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    /* Arkada tugmalari uchun hajmli (3D bubble/press) effekt */
+    .arcade-btn {
+      transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.15s ease;
+    }
+
+    .arcade-btn:hover {
+      filter: brightness(1.06);
+    }
+
+    .arcade-btn:active,
+    .arcade-btn.is-pressed {
+      transform: translateY(3px);
+    }
+
+    /* Do'kon ro'yxati uchun ixcham scrollbar */
+    .custom-scroll::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 9999px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.7);
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-between p-2 sm:p-4 md:p-5">
+
+  <!-- Yuqori ixcham sarlavha va boshqaruv paneli -->
+  <header class="w-full max-w-6xl flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-2">
+    <div class="flex items-center gap-2.5">
+      <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-300 via-amber-500 to-orange-600 flex items-center justify-center shadow-lg border border-amber-200/40">
+        <svg class="w-5 h-5 text-slate-950" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2L4 7v10l8 5 8-5V7l-8-5zm0 2.3L17.8 8 12 11.7 6.2 8 12 4.3zM6 9.8l5 3.1v6.8l-5-3.1V9.8zm7 9.9v-6.8l5-3.1v6.8l-5 3.1z"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-base sm:text-xl font-extrabold tracking-tight text-white leading-tight">
+          PIXEL ADVENTURE
+        </h1>
+        <p class="text-[11px] sm:text-xs text-sky-300/90 font-medium">
+          500+ Bosqich • 50 ta Odamchalar Do'koni • Pul (Coins) &amp; Yordamchilar
+        </p>
+      </div>
+    </div>
+
+    <!-- Bosqich tanlash, Pul/Rekord, Odamchalar do'koni va Qayta boshlash -->
+    <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
+      <div class="px-2.5 py-1.5 rounded-xl bg-slate-900/90 border border-amber-400/35 text-[11px] sm:text-xs font-bold text-amber-300 flex items-center gap-1">
+        <span>💰</span>
+        <span id="walletCoinsHeader" class="text-white">0</span>
+      </div>
+
+      <div class="hidden sm:flex px-2.5 py-1.5 rounded-xl bg-slate-900/90 border border-sky-400/30 text-xs font-bold text-sky-300">
+        REKORD: <span id="bestScoreHeader" class="text-white ml-1">0</span>
+      </div>
+
+      <button id="openShopBtn" type="button"
+        class="arcade-btn px-3 py-2 rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-500 text-slate-950 font-extrabold text-xs sm:text-sm flex items-center gap-1.5 shadow-md shadow-amber-500/20">
+        <span>🛡️</span>
+        <span>Odamchalar (<span id="equippedCountBadge">0</span>/6)</span>
+      </button>
+
+      <button id="openLevelsBtn" type="button"
+        class="arcade-btn px-3 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md">
+        <span>🗺️</span>
+        <span>Bosqich (1–500+)</span>
+      </button>
+
+      <button id="soundToggleBtn" type="button" aria-label="Ovozni yoqish yoki o'chirish"
+        class="arcade-btn px-2.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600/70 text-xs sm:text-sm font-semibold flex items-center gap-1 shadow-md">
+        <span id="soundIcon">🔊</span>
+      </button>
+
+      <button id="quickRestartBtn" type="button"
+        class="arcade-btn px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm flex items-center gap-1 shadow-md">
+        <span>↻</span>
+        <span class="hidden md:inline">Qayta</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Asosiy O'yin Maydoni -->
+  <main class="w-full max-w-6xl flex-1 flex flex-col items-center justify-center">
+    <div class="game-frame" id="gameContainer">
+      <canvas id="gameCanvas"></canvas>
+
+      <!-- O'yin ichidagi yuqori HUD (rasmdagi uslubga mos + Pul va Yordamchilar) -->
+      <div id="hudOverlay" class="pointer-events-none absolute top-0 left-0 right-0 p-2 sm:p-4 flex items-start justify-between gap-2 z-10">
+        <!-- Chap tomon: COINS (Bosqich va Jami Pul) -->
+        <div class="flex flex-col gap-1 bg-slate-900/40 backdrop-blur-[2px] px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-xl border border-white/20">
+          <div class="flex items-center gap-2">
+            <span class="inline-block w-4 h-5 sm:w-5 sm:h-6 rounded-full bg-gradient-to-b from-yellow-200 via-amber-400 to-amber-600 border-2 border-amber-800 shadow-inner"></span>
+            <span class="pixel-text pixel-hud-shadow text-[9px] sm:text-xs md:text-sm text-amber-300">
+              COINS: <span id="hudCoins" class="text-white">0/0</span>
+            </span>
+          </div>
+          <div class="pixel-text pixel-hud-shadow text-[8px] sm:text-[10px] md:text-xs text-emerald-300">
+            PUL: <span id="hudWallet" class="text-white">0</span>
+          </div>
+        </div>
+
+        <!-- Markaz: LEVEL (1..500+) va TIME -->
+        <div class="flex flex-col items-center text-center bg-slate-900/40 backdrop-blur-[2px] px-3 py-1.5 sm:px-5 sm:py-2 rounded-xl border border-white/20">
+          <div id="hudLevel" class="pixel-text pixel-hud-shadow text-[9px] sm:text-xs md:text-base text-amber-300">
+            LEVEL 1: SKY HIGH
+          </div>
+          <div class="pixel-text pixel-hud-shadow text-[9px] sm:text-xs md:text-sm text-sky-100 mt-1">
+            TIME: <span id="hudTime" class="text-white">183</span>
+          </div>
+        </div>
+
+        <!-- O'ng tomon: Yuraklar, SCORE va Faol Odamchalar -->
+        <div class="flex flex-col items-end gap-1 bg-slate-900/40 backdrop-blur-[2px] px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-xl border border-white/20">
+          <div id="hudHearts" class="flex items-center gap-1 sm:gap-1.5">
+            <!-- Yuraklar JS orqali chiziladi -->
+          </div>
+          <div class="pixel-text pixel-hud-shadow text-[9px] sm:text-xs md:text-sm text-amber-300">
+            SCORE: <span id="hudScore" class="text-white">0</span>
+          </div>
+          <div id="hudAlliesMini" class="text-[9px] sm:text-[11px] font-bold text-sky-200 pixel-hud-shadow">
+            ODAMCHALAR: <span id="hudAlliesCount" class="text-amber-300">0/6</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Boshlash / Bosqich yakuni / Mag'lubiyat oynasi (Modal Overlay) -->
+      <div id="modalOverlay" class="absolute inset-0 bg-slate-950/65 backdrop-blur-[3px] flex items-center justify-center p-4 z-20">
+        <div class="w-full max-w-md bg-slate-900/95 border-2 border-sky-400/40 rounded-2xl p-5 sm:p-6 text-center shadow-2xl">
+          <div id="modalBadge" class="inline-block px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-sky-500/20 text-sky-300 border border-sky-400/30 mb-2.5">
+            Sarguzasht Boshlanmoqda
+          </div>
+          <h2 id="modalTitle" class="pixel-text text-sm sm:text-lg text-amber-300 leading-relaxed mb-2.5">
+            SKY HIGH ADVENTURE
+          </h2>
+          <p id="modalDesc" class="text-xs sm:text-sm text-slate-300 leading-relaxed mb-4">
+            Oltin tangalarni yig'ing, 500+ bosqichdan o'ting, tikan va dushmanlardan ehtiyot bo'ling hamda yig'ilgan pulga 50 ta odamchadan yordamchi sotib oling!
+          </p>
+
+          <!-- Natijalar qatori -->
+          <div id="modalStats" class="grid grid-cols-3 gap-2 mb-4 bg-slate-800/80 rounded-xl p-2.5 border border-slate-700/70">
+            <div>
+              <div class="text-[10px] uppercase text-slate-400 font-semibold">Pul (Coins)</div>
+              <div id="statCoins" class="text-sm sm:text-base font-extrabold text-amber-300 mt-0.5">0</div>
+            </div>
+            <div>
+              <div class="text-[10px] uppercase text-slate-400 font-semibold">Ball</div>
+              <div id="statScore" class="text-sm sm:text-base font-extrabold text-emerald-300 mt-0.5">0</div>
+            </div>
+            <div>
+              <div class="text-[10px] uppercase text-slate-400 font-semibold">Qolgan vaqt</div>
+              <div id="statTime" class="text-sm sm:text-base font-extrabold text-sky-300 mt-0.5">183s</div>
+            </div>
+          </div>
+
+          <div class="flex flex-col sm:flex-row items-center justify-center gap-2">
+            <button id="primaryActionBtn" type="button"
+              class="arcade-btn w-full sm:w-auto flex-1 px-4 py-3 rounded-xl bg-gradient-to-b from-emerald-400 to-emerald-600 text-slate-950 font-extrabold text-sm shadow-lg shadow-emerald-500/25">
+              O'yinni Boshlash
+            </button>
+            <button id="modalShopBtn" type="button"
+              class="arcade-btn w-full sm:w-auto px-4 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-sm">
+              🛡️ 50 Odamcha
+            </button>
+            <button id="secondaryActionBtn" type="button"
+              class="arcade-btn hidden w-full sm:w-auto px-4 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm border border-slate-500/50">
+              Qayta urinish
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bosqichlar orasidagi silliq o'tish ekrani -->
+      <div id="transitionOverlay" class="hidden pointer-events-none absolute inset-0 bg-sky-950/75 backdrop-blur-[2px] flex flex-col items-center justify-center p-4 z-20 text-center">
+        <div class="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-amber-400/20 text-amber-300 border border-amber-300/40 mb-2">
+          Keyingi Bosqich Tayyorlanmoqda
+        </div>
+        <div id="transitionLevelText" class="pixel-text text-base sm:text-2xl text-white mb-2">
+          LEVEL 2: CLOUD RIDGE
+        </div>
+        <div id="transitionSubText" class="text-xs sm:text-sm text-sky-200 font-medium">
+          Masofa uzaydi • Yangi to'siqlar va dushmanlar qo'shildi!
+        </div>
+      </div>
+    </div>
+
+    <!-- Sensorli (Mobile/Tablet) va Sichqoncha Boshqaruv Tugmalari (Kanvas tashqarisida) -->
+    <div class="w-full flex items-center justify-between gap-3 mt-2.5 sm:mt-3 px-1">
+      <div class="flex items-center gap-2.5 sm:gap-3">
+        <button id="btnLeft" type="button" aria-label="Chapga yurish"
+          class="arcade-btn w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-b from-slate-700 to-slate-800 border-2 border-slate-500/60 shadow-lg flex items-center justify-center text-2xl font-black text-sky-200 active:from-sky-600 active:to-sky-700">
+          ◀
+        </button>
+        <button id="btnRight" type="button" aria-label="O'ngga yurish"
+          class="arcade-btn w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-b from-slate-700 to-slate-800 border-2 border-slate-500/60 shadow-lg flex items-center justify-center text-2xl font-black text-sky-200 active:from-sky-600 active:to-sky-700">
+          ▶
+        </button>
+      </div>
+
+      <div class="hidden md:flex flex-col items-center text-center text-xs text-slate-400 bg-slate-900/70 px-4 py-2 rounded-xl border border-slate-800">
+        <div>
+          <span class="text-slate-200 font-semibold">A / D</span> yoki <span class="text-slate-200 font-semibold">← / →</span> — Yurish
+          <span class="mx-2 text-slate-600">|</span>
+          <span class="text-slate-200 font-semibold">Space / W / ↑</span> — Sakrash (2x)
+          <span class="mx-2 text-slate-600">|</span>
+          <span class="text-slate-200 font-semibold">R</span> — Qayta urinish
+        </div>
+        <div class="text-[11px] text-sky-400/80 mt-0.5">
+          Terilgan pulga 50 xil odamcha sotib oling • 6 tagacha odamcha siz bilan yugurib, dushmanlarni otadi va yengadi!
+        </div>
+      </div>
+
+      <button id="btnJump" type="button" aria-label="Sakrashtugmasi"
+        class="arcade-btn px-6 h-14 sm:h-16 rounded-2xl bg-gradient-to-b from-amber-400 to-orange-600 border-2 border-amber-200/70 shadow-lg shadow-orange-600/25 flex items-center justify-center gap-2 text-slate-950 font-black text-sm sm:text-base">
+        <span>▲</span>
+        <span>SAKRASH</span>
+      </button>
+    </div>
+  </main>
+
+  <!-- 50 TA ODAMCHALAR DO'KONI VA JAMOANI BOSHQARISH MODALI -->
+  <div id="shopModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40 flex items-center justify-center p-2 sm:p-4">
+    <div class="w-full max-w-5xl max-h-[90vh] bg-slate-900 border-2 border-amber-400/40 rounded-2xl flex flex-col overflow-hidden shadow-2xl">
+      <!-- Do'kon Header -->
+      <div class="p-3.5 sm:p-5 bg-slate-950/70 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="pixel-text text-xs sm:text-base text-amber-300">
+            ODAMCHALAR DO'KONI (50 TA YORDAMCHI)
+          </h2>
+          <p class="text-xs text-slate-400 mt-1">
+            Terib olgan pulingizga odamcha sotib oling va jamoaga <span class="text-sky-300 font-bold">6 tagacha</span> odamchani tanlang!
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2.5">
+          <div class="px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-400/40 text-amber-300 font-extrabold text-xs sm:text-sm">
+            💰 Pul: <span id="shopWalletCoins" class="text-white">0</span>
+          </div>
+          <div class="px-3 py-1.5 rounded-xl bg-sky-500/15 border border-sky-400/40 text-sky-300 font-extrabold text-xs sm:text-sm">
+            🛡️ Jamoa: <span id="shopEquippedCount" class="text-white">0</span>/6
+          </div>
+          <button id="closeShopBtn" type="button"
+            class="arcade-btn px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs sm:text-sm border border-slate-600">
+            ✕ Yopish
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter tugmalari -->
+      <div class="px-3.5 sm:px-5 py-2.5 bg-slate-900/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <button type="button" data-shop-filter="all"
+            class="shop-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-slate-950">
+            Barchasi (50)
+          </button>
+          <button type="button" data-shop-filter="owned"
+            class="shop-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700">
+            Sotib olinganlar
+          </button>
+          <button type="button" data-shop-filter="equipped"
+            class="shop-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700">
+            Jamoaadagilar (Max 6)
+          </button>
+        </div>
+        <div id="shopOwnedSummary" class="text-xs text-emerald-300 font-semibold">
+          Sotib olingan: 0 / 50 odamcha
+        </div>
+      </div>
+
+      <!-- 50 ta odamcha kartochkalari -->
+      <div id="shopGrid" class="custom-scroll p-3.5 sm:p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 overflow-y-auto flex-1">
+        <!-- JS orqali 50 ta odamcha render qilinadi -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 500+ BOSQICH TANLASH MODALI -->
+  <div id="levelsModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40 flex items-center justify-center p-3 sm:p-4">
+    <div class="w-full max-w-2xl bg-slate-900 border-2 border-sky-400/40 rounded-2xl p-4 sm:p-6 shadow-2xl">
+      <div class="flex items-center justify-between gap-2 mb-4">
+        <div>
+          <h2 class="pixel-text text-xs sm:text-base text-sky-300">
+            BOSQICH TANLASH (1 — 500+)
+          </h2>
+          <p class="text-xs text-slate-400 mt-1">
+            Istalgan bosqichga o'ting yoki 1 dan 500+ gacha ketma-ket sinab ko'ring.
+          </p>
+        </div>
+        <button id="closeLevelsBtn" type="button"
+          class="arcade-btn px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs sm:text-sm border border-slate-600">
+          ✕ Yopish
+        </button>
+      </div>
+
+      <!-- Tezkor bosqichlar (1, 10, 25, 50, 100, 200, 350, 500) -->
+      <div class="mb-4">
+        <div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-2">Tezkor Bosqichlar</div>
+        <div class="grid grid-cols-4 sm:grid-cols-8 gap-2">
+          <button type="button" data-jump-level="1" class="jump-lvl-btn arcade-btn py-2 rounded-xl bg-slate-800 hover:bg-sky-600 font-extrabold text-xs border border-slate-700">1</button>
+          <button type="button" data-jump-level="10" class="jump-lvl-btn arcade-btn py-2 rounded-xl bg-slate-800 hover:bg-sky-600 font-extrabold text-xs border border-slate-700">10</button>
+          <button type="button" data-jump-level="25" class="jump-lvl-btn arcade-btn py-2 rounded-xl bg-slate-800 hover:bg-sky-600 font-extrabold text-xs border border-slate-700">25</button>
+          <button type="button" data-jump-level="50" class="jump-lvl-btn arcade-btn py-2 rounded-xl bg-slate-800 hover:bg-sky-600 font-extrabold text-xs border border-slate-700">50</button>
+          <button type="button" data-jump-level="100" class="jump-lvl-btn arcade-btn py-2 rounded-xl bg-slate-800 hover:bg-sky-600 font-extrabold text-xs border border-slate-700">100</button>
+          <button type="button" data-jump-level="200" class="jump-lvl-btn arcade-btn py-2 rounded-xl bg-slate-800 hover:bg-sky-600 font-extrabold text-xs border border-slate-700">200</button>
+          <button type="button" data-jump-level="350" class="jump-lvl-btn arcade-btn py-2 rounded-xl bg-slate-800 hover:bg-sky-600 font-extrabold text-xs border border-slate-700">350</button>
+          <button type="button" data-jump-level="500" class="jump-lvl-btn arcade-btn py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs border border-amber-300">500</button>
+        </div>
+      </div>
+
+      <!-- Aniq bosqich raqamini kiritish -->
+      <form id="customLevelForm" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 bg-slate-800/70 p-3 rounded-xl border border-slate-700">
+        <label for="customLevelInput" class="text-xs font-bold text-slate-200 whitespace-nowrap">
+          Bosqich raqami (1–999):
+        </label>
+        <input id="customLevelInput" type="number" min="1" max="999" value="1"
+          class="flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-600 text-white font-bold text-sm focus:outline-none focus:border-sky-400" />
+        <button type="submit"
+          class="arcade-btn px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm">
+          Bosqichga O'tish
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Ixcham Footer -->
+  <footer class="w-full max-w-6xl text-center text-[11px] text-slate-500 mt-1.5">
+    Pixel Adventure • 500+ Bosqichli Platformer &amp; 50 Odamchalar Do'koni (HTML5 Canvas + Web Audio + localStorage)
+  </footer>
+
+  <script>
+    /**
+     * =========================================================================
+     * PIXEL ADVENTURE — SKY HIGH PLATFORMER (500+ LEVELS & 50 ODAMCHALAR SHOP)
+     * 1. 1 dan 500+ gacha uzayuvchi va qiyinlashuvchi bosqichlar (tezkor sakrash
+     *    va ixtiyoriy bosqichga o'tish bilan).
+     * 2. Yig'ilgan pul (walletCoins) evaziga 50 ta noyob odamcha sotib olish.
+     * 3. 6 tagacha odamchani jamoaga qo'shib, o'yinda birga yugurish,
+     *    dushmanlarni otish va yengish.
+     * =========================================================================
+     */
+
+    // --- 1. OVOZ SINTEZATORI (Web Audio API — tashqi fayllarsiz) ---
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+      }
+
+      ensureContext() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) {
+            this.ctx = new AudioCtx();
+          }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+      }
+
+      setMuted(muted) {
+        this.muted = muted;
+      }
+
+      playTone(freq, endFreq, duration, type = 'square', volume = 0.08, delay = 0) {
+        if (this.muted) return;
+        try {
+          this.ensureContext();
+          if (!this.ctx) return;
+
+          const now = this.ctx.currentTime + delay;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, now);
+          if (endFreq !== null && endFreq !== freq) {
+            osc.frequency.exponentialRampToValueAtTime(Math.max(20, endFreq), now + duration);
+          }
+
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.linearRampToValueAtTime(volume, now + 0.012);
+          gain.gain.exponentialRampToValueAtTime(0.0008, now + duration);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start(now);
+          osc.stop(now + duration + 0.02);
+        } catch (err) {
+          // Brauzer audio cheklovlarida xatolik yuz bersa o'yin to'xtamasin
+        }
+      }
+
+      jump(isDouble = false) {
+        if (isDouble) {
+          this.playTone(380, 780, 0.14, 'square', 0.07);
+        } else {
+          this.playTone(230, 540, 0.13, 'square', 0.075);
+        }
+      }
+
+      coin() {
+        this.playTone(987.77, null, 0.07, 'square', 0.075, 0);
+        this.playTone(1318.51, null, 0.14, 'square', 0.075, 0.065);
+      }
+
+      checkpoint() {
+        this.playTone(587.33, null, 0.08, 'triangle', 0.09, 0);
+        this.playTone(880.0, null, 0.16, 'triangle', 0.09, 0.08);
+      }
+
+      stomp() {
+        this.playTone(320, 110, 0.14, 'sawtooth', 0.09);
+      }
+
+      hurt() {
+        this.playTone(240, 75, 0.26, 'sawtooth', 0.11);
+      }
+
+      win() {
+        const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5];
+        notes.forEach((n, idx) => {
+          this.playTone(n, null, 0.14, 'square', 0.08, idx * 0.09);
+        });
+      }
+
+      gameOver() {
+        const notes = [392.0, 349.23, 311.13, 261.63];
+        notes.forEach((n, idx) => {
+          this.playTone(n, n * 0.92, 0.2, 'sawtooth', 0.08, idx * 0.14);
+        });
+      }
+
+      shoot() {
+        this.playTone(740, 260, 0.08, 'square', 0.04);
+      }
+
+      buy() {
+        this.playTone(659.25, null, 0.07, 'triangle', 0.09, 0);
+        this.playTone(880.0, null, 0.07, 'triangle', 0.09, 0.07);
+        this.playTone(1174.66, null, 0.15, 'triangle', 0.09, 0.14);
+      }
+    }
+
+    // --- 2. 50 TA ODAMCHALAR KATALOGI (ALLIES / COMPANIONS) ---
+    const MAX_EQUIPPED_ALLIES = 6;
+    const ALLY_ROLES = ['Otuvchi (Archer)', 'Sehrgar (Mage)', 'Qalqonchi (Knight)', 'Tezkor (Scout)', 'Snayper (Ranger)'];
+    const ALLY_FIRST_NAMES = [
+      'Ali', 'Timur', 'Sardor', 'Jasurbek', 'Aziz', 'Botir', 'Doston', 'Elbek', 'Farrux', 'G\'ani',
+      'Hamid', 'Islom', 'Javohir', 'Kamol', 'Laziz', 'Murod', 'Nurbek', 'Otabek', 'Po\'lat', 'Qodir',
+      'Rustam', 'Sanjar', 'Tohir', 'Ulug\'bek', 'Vali', 'Xurshid', 'Yusuf', 'Zafar', 'Abror', 'Bekzod',
+      'Davron', 'Erkin', 'Fayz', 'Gulom', 'Husan', 'Ilhom', 'Jamshid', 'Karim', 'Lochin', 'Mansur',
+      'Nodir', 'Orif', 'Parviz', 'Ravshan', 'Suhrob', 'Temurbek', 'Umrbek', 'Vohid', 'Zokir', 'Qahramon'
+    ];
+    const ALLY_TITLES = [
+      'Skaut', 'Kamonchi', 'Sehrgar', 'Ritsar', 'Bomba', 'Shifokor', 'Ninja', 'Golem', 'Alvon', 'Yulduz',
+      'Bo\'ron', 'Chaqmoq', 'Qoya', 'Soya', 'Qanot', 'Olov', 'Muz', 'Temir', 'Oltin', 'Zafar'
+    ];
+    const PALETTE_SWATCHES = [
+      ['#ef4444', '#fca5a5', '#1e3a8a'],
+      ['#10b981', '#6ee7b7', '#064e3b'],
+      ['#3b82f6', '#93c5fd', '#1e1b4b'],
+      ['#f59e0b', '#fde68a', '#451a03'],
+      ['#a855f7', '#e9d5ff', '#2e1065'],
+      ['#ec4899', '#fbcfe8', '#500724'],
+      ['#06b6d4', '#a5f3fc', '#083344'],
+      ['#84cc16', '#d9f99d', '#1a2e05']
+    ];
+
+    function createFiftyAllies() {
+      const list = [];
+      for (let i = 0; i < 50; i++) {
+        const idx = i + 1;
+        const firstName = ALLY_FIRST_NAMES[i % ALLY_FIRST_NAMES.length];
+        const title = ALLY_TITLES[i % ALLY_TITLES.length];
+        const role = ALLY_ROLES[i % ALLY_ROLES.length];
+        const colors = PALETTE_SWATCHES[i % PALETTE_SWATCHES.length];
+
+        // 1-odamcha 150 puldan boshlanib, 50-odamchagacha bosqichma-bosqich qimmatlashadi
+        const price = Math.round(150 + i * 165 + Math.pow(i, 1.55) * 18);
+        const fireRate = Math.max(0.45, Number((1.35 - i * 0.017).toFixed(2)));
+        const projColor = i % 3 === 0 ? '#fde047' : (i % 3 === 1 ? '#38bdf8' : '#fb7185');
+
+        list.push({
+          id: `ally_${idx}`,
+          number: idx,
+          name: `${firstName} (${title})`,
+          role,
+          price,
+          fireRate,
+          projColor,
+          hatColor: colors[0],
+          trimColor: colors[1],
+          suitColor: colors[2]
+        });
+      }
+      return list;
+    }
+
+    const ALLIES_CATALOG = createFiftyAllies();
+
+    // --- 3. SAQLASH TIZIMI (localStorage) ---
+    const VIEW_WIDTH = 1280;
+    const VIEW_HEIGHT = 720;
+    const STORAGE_KEY = 'pixel_adventure_sky_high_v2_save';
+
+    function loadSavedProgress() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          return {
+            bestScore: 0,
+            highestLevel: 1,
+            walletCoins: 200, // Boshlang'ich ozgina pul (1-odamchani sinash oson bo'lishi uchun)
+            ownedIds: [],
+            equippedIds: []
+          };
+        }
+        const parsed = JSON.parse(raw);
+        const ownedIds = Array.isArray(parsed.ownedIds)
+          ? parsed.ownedIds.filter(id => ALLIES_CATALOG.some(a => a.id === id))
+          : [];
+        const equippedIds = Array.isArray(parsed.equippedIds)
+          ? parsed.equippedIds.filter(id => ownedIds.includes(id)).slice(0, MAX_EQUIPPED_ALLIES)
+          : [];
+
+        return {
+          bestScore: Number.isFinite(parsed.bestScore) ? Math.max(0, Math.floor(parsed.bestScore)) : 0,
+          highestLevel: Number.isFinite(parsed.highestLevel) ? Math.max(1, Math.floor(parsed.highestLevel)) : 1,
+          walletCoins: Number.isFinite(parsed.walletCoins) ? Math.max(0, Math.floor(parsed.walletCoins)) : 0,
+          ownedIds,
+          equippedIds
+        };
+      } catch (e) {
+        return { bestScore: 0, highestLevel: 1, walletCoins: 200, ownedIds: [], equippedIds: [] };
+      }
+    }
+
+    function persistState() {
+      try {
+        const payload = {
+          bestScore: Math.max(0, Math.floor(state.bestScore)),
+          highestLevel: Math.max(1, Math.floor(state.highestLevel)),
+          walletCoins: Math.max(0, Math.floor(state.walletCoins)),
+          ownedIds: state.ownedIds,
+          equippedIds: state.equippedIds.slice(0, MAX_EQUIPPED_ALLIES)
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      } catch (e) {
+        // Storage cheklovlarida o'yin ishlayversin
+      }
+    }
+
+    // --- 4. 500+ BOSQICHLAR GENERATORI ---
+    function mulberry32(seed) {
+      let a = seed >>> 0;
+      return function () {
+        a |= 0;
+        a = (a + 0x6d2b79f5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function makeDecor(width, kind, rand) {
+      const vines = [];
+      const bushes = [];
+      const vineCount = kind === 'main' ? Math.max(2, Math.floor(width / 165)) : Math.max(1, Math.floor(width / 110));
+      const bushCount = kind === 'main' ? Math.max(2, Math.floor(width / 180)) : Math.max(1, Math.floor(width / 120));
+
+      for (let i = 0; i < vineCount; i++) {
+        const vx = Math.round(35 + ((i + 0.35 + rand() * 0.35) / vineCount) * Math.max(40, width - 70));
+        vines.push(vx);
+      }
+      for (let i = 0; i < bushCount; i++) {
+        const bx = Math.round(30 + ((i + 0.25 + rand() * 0.4) / bushCount) * Math.max(40, width - 65));
+        bushes.push(bx);
+      }
+      return { vines, bushes };
+    }
+
+    function addCoinArc(coins, startX, endX, baseY, count, arcHeight = 26, value = 1) {
+      for (let i = 0; i < count; i++) {
+        const t = count === 1 ? 0.5 : i / (count - 1);
+        const x = Math.round(startX + (endX - startX) * t);
+        const parabola = Math.sin(t * Math.PI) * arcHeight;
+        coins.push({ x, y: Math.round(baseY - parabola), value });
+      }
+    }
+
+    function buildLevel(levelNumber) {
+      const n = Math.max(1, Math.floor(levelNumber));
+      const rand = mulberry32(n * 104729 + 7919);
+
+      // 1 dan 500+ gacha har bir bosqich uzayib boradi
+      const worldWidth = Math.min(18500, 2350 + n * 420 + Math.floor(n / 10) * 350);
+      const timeLimit = Math.min(900, 165 + n * 24 + Math.floor(n / 25) * 40);
+      const coinValue = 1 + Math.floor((n - 1) / 15);
+
+      const themes = [
+        'SKY HIGH',
+        'CLOUD RIDGE',
+        'EMERALD SKYWAYS',
+        'WINDY CITADEL',
+        'SUNLIT ARCHIPELAGO',
+        'CELESTIAL PEAKS',
+        'STORM CITADEL',
+        'GOLDEN HORIZON'
+      ];
+      const themeName = themes[(n - 1) % themes.length];
+      const name = `LEVEL ${n}: ${themeName}`;
+
+      const platforms = [];
+      const coins = [];
+      const enemies = [];
+      const spikes = [];
+      const checkpoints = [];
+
+      const startPlatW = 460;
+      const startPlatY = 492;
+      const startDecor = makeDecor(startPlatW, 'main', rand);
+      platforms.push({
+        x: 0,
+        y: startPlatY,
+        w: startPlatW,
+        h: 240,
+        kind: 'main',
+        vines: startDecor.vines,
+        bushes: startDecor.bushes,
+        moveAxis: null
+      });
+      addCoinArc(coins, 155, 360, startPlatY - 42, 4, 18, coinValue);
+
+      const hiIslandX = 110;
+      const hiIslandY = 295;
+      const hiIslandW = 145;
+      const hiDecor = makeDecor(hiIslandW, 'floating', rand);
+      platforms.push({
+        x: hiIslandX,
+        y: hiIslandY,
+        w: hiIslandW,
+        h: 54,
+        kind: 'floating',
+        vines: hiDecor.vines,
+        bushes: hiDecor.bushes,
+        moveAxis: null
+      });
+      addCoinArc(coins, hiIslandX + 24, hiIslandX + hiIslandW - 24, hiIslandY - 38, 4, 12, coinValue);
+
+      let cursorX = startPlatW;
+      let currentY = startPlatY;
+      let segmentIndex = 0;
+      let lastCheckpointX = startPlatW - 80;
+
+      const difficulty = Math.min(4.0, 1 + (n - 1) * 0.015);
+      const safeMarginEnd = 360;
+
+      while (cursorX < worldWidth - safeMarginEnd) {
+        segmentIndex += 1;
+
+        const baseGap = 115 + Math.min(72, Math.floor(n / 8) * 3);
+        const gap = Math.round(baseGap + rand() * 62);
+
+        const deltaY = (rand() - 0.52) * 140;
+        currentY = Math.max(325, Math.min(548, Math.round(currentY + deltaY)));
+
+        const movingFreq = n >= 50 ? 2 : (n >= 2 ? 3 : 999);
+        const isMovingPlatform = n >= 2 && segmentIndex % movingFreq === 0;
+        const isFloating = !isMovingPlatform && segmentIndex % 2 === 0;
+
+        const platW = isMovingPlatform
+          ? Math.max(115, Math.round(165 - Math.min(45, Math.floor(n / 15) * 2)))
+          : isFloating
+            ? Math.max(145, Math.round(225 - rand() * 55))
+            : Math.max(250, Math.round(380 + rand() * 170));
+
+        const platX = cursorX + gap;
+        const decor = makeDecor(platW, isFloating || isMovingPlatform ? 'floating' : 'main', rand);
+
+        const platObj = {
+          x: platX,
+          y: currentY,
+          w: platW,
+          h: isFloating || isMovingPlatform ? 66 : 240,
+          kind: isFloating || isMovingPlatform ? 'floating' : 'main',
+          vines: decor.vines,
+          bushes: decor.bushes,
+          moveAxis: isMovingPlatform ? (segmentIndex % 4 === 0 ? 'y' : 'x') : null,
+          baseX: platX,
+          baseY: currentY,
+          moveRange: isMovingPlatform ? (segmentIndex % 4 === 0 ? 52 : 74) : 0,
+          moveSpeed: (1.5 + rand() * 0.75) * Math.min(1.9, 1 + (n - 1) * 0.004),
+          movePhase: rand() * Math.PI * 2
+        };
+
+        platforms.push(platObj);
+
+        addCoinArc(coins, cursorX + 18, platX - 18, Math.min(currentY, startPlatY) - 65, 3, 28, coinValue);
+
+        if (platW >= 140) {
+          const cCount = Math.min(6, Math.max(3, Math.floor(platW / 95)));
+          addCoinArc(coins, platX + 32, platX + platW - 32, currentY - 42, cCount, 18, coinValue);
+        }
+
+        if (!isMovingPlatform && platW >= 270 && rand() > 0.34) {
+          const subW = 135;
+          const subX = platX + Math.round(platW * 0.28);
+          const subY = Math.max(205, currentY - 145);
+          const subDecor = makeDecor(subW, 'floating', rand);
+          platforms.push({
+            x: subX,
+            y: subY,
+            w: subW,
+            h: 52,
+            kind: 'floating',
+            vines: subDecor.vines,
+            bushes: subDecor.bushes,
+            moveAxis: null
+          });
+          addCoinArc(coins, subX + 20, subX + subW - 20, subY - 36, 3, 12, coinValue);
+        }
+
+        // Yuqori bosqichlarda (3-bosqichdan boshlab) tikanli to'siqlar (spikes)
+        if (!isMovingPlatform && n >= 3 && platW >= 320 && segmentIndex % 3 === 0) {
+          const spikeX = platX + Math.round(platW * 0.5) - 24;
+          spikes.push({
+            x: spikeX,
+            y: currentY - 16,
+            w: 48,
+            h: 16
+          });
+        }
+
+        // Dushmanlar (patrul va quvuvchi dushmanlar)
+        if (!isMovingPlatform && platW >= 205) {
+          const enemyCount = platW >= 420 && n >= 2 ? (n >= 100 ? 3 : 2) : 1;
+          for (let eIdx = 0; eIdx < enemyCount; eIdx++) {
+            const zoneW = platW / enemyCount;
+            const zoneStart = platX + eIdx * zoneW + 24;
+            const zoneEnd = platX + (eIdx + 1) * zoneW - 24;
+            if (zoneEnd - zoneStart >= 75) {
+              const chase = (n >= 2 && (segmentIndex + eIdx) % 3 === 0);
+              const hp = n >= 150 ? 2 : 1;
+              const speed = (chase ? 108 : 80) * Math.min(2.0, 0.96 + (n - 1) * 0.004);
+              enemies.push({
+                id: enemies.length,
+                x: Math.round((zoneStart + zoneEnd) * 0.5),
+                y: currentY - 34,
+                w: 36,
+                h: 34,
+                minX: Math.round(zoneStart),
+                maxX: Math.round(zoneEnd),
+                speed,
+                dir: eIdx % 2 === 0 ? 1 : -1,
+                chase,
+                chaseRange: 240 + Math.min(160, n * 0.5),
+                hp,
+                maxHp: hp,
+                alive: true,
+                animPhase: rand() * Math.PI * 2
+              });
+            }
+          }
+        }
+
+        // Har ~1050px masofada Checkpoint bayrog'i
+        if (!isMovingPlatform && platW >= 220 && platX - lastCheckpointX >= 1050) {
+          checkpoints.push({
+            id: checkpoints.length,
+            x: platX + Math.min(85, Math.round(platW * 0.25)),
+            y: currentY,
+            reached: false
+          });
+          lastCheckpointX = platX;
+        }
+
+        cursorX = platX + platW;
+      }
+
+      const endGap = 130;
+      const finalY = Math.max(330, Math.min(480, currentY));
+      const finalW = 360;
+      const finalX = cursorX + endGap;
+      const finalDecor = makeDecor(finalW, 'main', rand);
+
+      platforms.push({
+        x: finalX,
+        y: finalY,
+        w: finalW,
+        h: 240,
+        kind: 'main',
+        vines: finalDecor.vines,
+        bushes: finalDecor.bushes,
+        moveAxis: null
+      });
+
+      addCoinArc(coins, cursorX + 16, finalX - 16, finalY - 65, 3, 24, coinValue);
+      addCoinArc(coins, finalX + 40, finalX + 160, finalY - 44, 4, 16, coinValue);
+
+      const totalWorldWidth = finalX + finalW;
+      const goal = {
+        x: finalX + finalW - 95,
+        y: finalY - 72
+      };
+
+      return {
+        id: n,
+        name,
+        worldWidth: totalWorldWidth,
+        timeLimit,
+        difficulty,
+        coinValue,
+        spawn: { x: 120, y: startPlatY - 56 },
+        goal,
+        platforms,
+        coins,
+        enemies,
+        spikes,
+        checkpoints
+      };
+    }
+
+    // --- 5. O'YIN HOLATI VA DOM ELEMENTLARI ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const walletCoinsHeaderEl = document.getElementById('walletCoinsHeader');
+    const bestScoreHeaderEl = document.getElementById('bestScoreHeader');
+    const equippedCountBadgeEl = document.getElementById('equippedCountBadge');
+    const hudCoinsEl = document.getElementById('hudCoins');
+    const hudWalletEl = document.getElementById('hudWallet');
+    const hudLevelEl = document.getElementById('hudLevel');
+    const hudTimeEl = document.getElementById('hudTime');
+    const hudHeartsEl = document.getElementById('hudHearts');
+    const hudScoreEl = document.getElementById('hudScore');
+    const hudAlliesCountEl = document.getElementById('hudAlliesCount');
+
+    const modalOverlay = document.getElementById('modalOverlay');
+    const modalBadge = document.getElementById('modalBadge');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalDesc = document.getElementById('modalDesc');
+    const statCoinsEl = document.getElementById('statCoins');
+    const statScoreEl = document.getElementById('statScore');
+    const statTimeEl = document.getElementById('statTime');
+    const primaryActionBtn = document.getElementById('primaryActionBtn');
+    const modalShopBtn = document.getElementById('modalShopBtn');
+    const secondaryActionBtn = document.getElementById('secondaryActionBtn');
+
+    const transitionOverlay = document.getElementById('transitionOverlay');
+    const transitionLevelText = document.getElementById('transitionLevelText');
+    const transitionSubText = document.getElementById('transitionSubText');
+
+    const shopModal = document.getElementById('shopModal');
+    const openShopBtn = document.getElementById('openShopBtn');
+    const closeShopBtn = document.getElementById('closeShopBtn');
+    const shopWalletCoinsEl = document.getElementById('shopWalletCoins');
+    const shopEquippedCountEl = document.getElementById('shopEquippedCount');
+    const shopOwnedSummaryEl = document.getElementById('shopOwnedSummary');
+    const shopGridEl = document.getElementById('shopGrid');
+
+    const levelsModal = document.getElementById('levelsModal');
+    const openLevelsBtn = document.getElementById('openLevelsBtn');
+    const closeLevelsBtn = document.getElementById('closeLevelsBtn');
+    const customLevelForm = document.getElementById('customLevelForm');
+    const customLevelInput = document.getElementById('customLevelInput');
+
+    const soundToggleBtn = document.getElementById('soundToggleBtn');
+    const soundIcon = document.getElementById('soundIcon');
+    const quickRestartBtn = document.getElementById('quickRestartBtn');
+
+    const btnLeft = document.getElementById('btnLeft');
+    const btnRight = document.getElementById('btnRight');
+    const btnJump = document.getElementById('btnJump');
+
+    const sound = new SoundEngine();
+    const savedInit = loadSavedProgress();
+
+    const state = {
+      mode: 'start', // 'start' | 'playing' | 'transitioning' | 'game_over'
+      levelNumber: 1,
+      currentLevel: null,
+      worldWidth: 2800,
+      cameraX: 0,
+      bestScore: savedInit.bestScore,
+      highestLevel: savedInit.highestLevel,
+      walletCoins: savedInit.walletCoins,
+      ownedIds: savedInit.ownedIds,
+      equippedIds: savedInit.equippedIds,
+      shopFilter: 'all',
+      coinsCollected: 0,
+      totalCoins: 0,
+      score: 0,
+      lives: 3,
+      maxLives: 3,
+      timeLeft: 183,
+      timeAccumulator: 0,
+      elapsed: 0,
+      transitionTimer: 0,
+      platforms: [],
+      coins: [],
+      enemies: [],
+      spikes: [],
+      checkpoints: [],
+      activeCheckpoint: null,
+      allies: [],
+      projectiles: [],
+      particles: [],
+      floatingTexts: [],
+      trail: [],
+      goal: { x: 2500, y: 400 },
+      player: {
+        x: 120,
+        y: 420,
+        w: 36,
+        h: 46,
+        vx: 0,
+        vy: 0,
+        facing: 1,
+        onGround: false,
+        coyoteTimer: 0,
+        jumpBufferTimer: 0,
+        jumpsUsed: 0,
+        maxJumps: 2,
+        invulnTimer: 0,
+        runCycle: 0
+      },
+      input: {
+        left: false,
+        right: false,
+        jumpJustPressed: false
+      }
+    };
+
+    // --- 6. RESPONSIV CANVAS SOZLASH ---
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const targetW = Math.max(320, Math.round(rect.width * dpr));
+      const targetH = Math.max(180, Math.round(rect.height * dpr));
+
+      if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+      }
+      ctx.imageSmoothingEnabled = false;
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // --- 7. ODAMCHALAR JAMOASINI SINXRONLASH ---
+    function syncActiveAllies() {
+      const p = state.player;
+      state.allies = state.equippedIds
+        .map((id, idx) => {
+          const def = ALLIES_CATALOG.find(a => a.id === id);
+          if (!def) return null;
+          const existing = state.allies.find(a => a.id === id);
+          const slot = idx + 1;
+          return {
+            id: def.id,
+            number: def.number,
+            name: def.name,
+            role: def.role,
+            fireRate: def.fireRate,
+            projColor: def.projColor,
+            hatColor: def.hatColor,
+            trimColor: def.trimColor,
+            suitColor: def.suitColor,
+            slot,
+            x: existing ? existing.x : p.x - slot * 36 * p.facing,
+            y: existing ? existing.y : p.y,
+            w: 28,
+            h: 36,
+            vx: 0,
+            vy: 0,
+            facing: p.facing,
+            onGround: false,
+            attackCooldown: 0.4 + idx * 0.15,
+            animPhase: idx * 0.9
+          };
+        })
+        .filter(Boolean);
+
+      equippedCountBadgeEl.textContent = state.equippedIds.length;
+      hudAlliesCountEl.textContent = `${state.equippedIds.length}/${MAX_EQUIPPED_ALLIES}`;
+    }
+
+    // --- 8. BOSQICHNI YUKLASH VA HUD YANGILASH ---
+    function loadLevel(levelNum, resetScoreAndLives = false) {
+      const lvl = buildLevel(levelNum);
+      state.levelNumber = lvl.id;
+      state.currentLevel = lvl;
+      state.worldWidth = lvl.worldWidth;
+
+      if (resetScoreAndLives) {
+        state.score = 0;
+        state.lives = state.maxLives;
+      }
+
+      state.platforms = lvl.platforms.map(p => ({ ...p, dx: 0, dy: 0 }));
+      state.coins = lvl.coins.map((c, idx) => ({
+        id: idx,
+        x: c.x,
+        y: c.y,
+        r: 13,
+        value: c.value || 1,
+        collected: false,
+        bobPhase: idx * 0.55
+      }));
+      state.enemies = lvl.enemies.map(e => ({ ...e }));
+      state.spikes = lvl.spikes.map(s => ({ ...s }));
+      state.checkpoints = lvl.checkpoints.map(cp => ({ ...cp }));
+      state.activeCheckpoint = null;
+
+      state.totalCoins = state.coins.length;
+      state.coinsCollected = 0;
+      state.timeLeft = lvl.timeLimit;
+      state.timeAccumulator = 0;
+      state.projectiles = [];
+      state.particles = [];
+      state.floatingTexts = [];
+      state.trail = [];
+      state.goal = { ...lvl.goal };
+
+      state.player.x = lvl.spawn.x;
+      state.player.y = lvl.spawn.y;
+      state.player.vx = 0;
+      state.player.vy = 0;
+      state.player.facing = 1;
+      state.player.onGround = false;
+      state.player.coyoteTimer = 0;
+      state.player.jumpBufferTimer = 0;
+      state.player.jumpsUsed = 0;
+      state.player.invulnTimer = 1.0;
+
+      state.allies = [];
+      syncActiveAllies();
+
+      state.cameraX = 0;
+
+      state.highestLevel = Math.max(state.highestLevel, state.levelNumber);
+      persistState();
+      updateHUD();
+    }
+
+    function updateHUD() {
+      const lvlName = state.currentLevel ? state.currentLevel.name : `LEVEL ${state.levelNumber}: SKY HIGH`;
+      hudCoinsEl.textContent = `${state.coinsCollected}/${state.totalCoins}`;
+      hudWalletEl.textContent = state.walletCoins;
+      walletCoinsHeaderEl.textContent = state.walletCoins;
+      hudLevelEl.textContent = lvlName;
+      hudTimeEl.textContent = Math.max(0, Math.ceil(state.timeLeft));
+      hudScoreEl.textContent = state.score;
+      equippedCountBadgeEl.textContent = state.equippedIds.length;
+      hudAlliesCountEl.textContent = `${state.equippedIds.length}/${MAX_EQUIPPED_ALLIES}`;
+
+      if (state.score > state.bestScore) {
+        state.bestScore = state.score;
+        persistState();
+      }
+      bestScoreHeaderEl.textContent = state.bestScore;
+
+      hudHeartsEl.innerHTML = '';
+      for (let i = 0; i < state.maxLives; i++) {
+        const active = i < state.lives;
+        const heart = document.createElement('span');
+        heart.className = 'inline-block transition-transform duration-150';
+        heart.innerHTML = active
+          ? `<svg class="w-4 h-4 sm:w-5 sm:h-5 drop-shadow" viewBox="0 0 16 16" fill="#ef4444" stroke="#7f1d1d" stroke-width="1.2">
+               <path d="M8 14S1.5 9.8 1.5 5.3A3.3 3.3 0 0 1 8 3.8a3.3 3.3 0 0 1 6.5 1.5C14.5 9.8 8 14 8 14z"/>
+             </svg>`
+          : `<svg class="w-4 h-4 sm:w-5 sm:h-5 opacity-65" viewBox="0 0 16 16" fill="#334155" stroke="#0f172a" stroke-width="1.2">
+               <path d="M8 14S1.5 9.8 1.5 5.3A3.3 3.3 0 0 1 8 3.8a3.3 3.3 0 0 1 6.5 1.5C14.5 9.8 8 14 8 14z"/>
+             </svg>`;
+        hudHeartsEl.appendChild(heart);
+      }
+    }
+
+    // --- 9. 50 TA ODAMCHALAR DO'KONI UI ---
+    function renderAllyAvatarSVG(ally) {
+      return `
+        <svg class="w-11 h-11 shrink-0 rounded-xl bg-slate-950/80 p-1 border border-slate-700" viewBox="0 0 24 24">
+          <rect x="6" y="3" width="12" height="4" fill="${ally.hatColor}" />
+          <rect x="7" y="2" width="10" height="2" fill="${ally.trimColor}" />
+          <rect x="7" y="7" width="10" height="6" fill="#fed7aa" />
+          <rect x="13" y="9" width="2" height="2" fill="#0f172a" />
+          <rect x="6" y="13" width="12" height="6" fill="${ally.suitColor}" />
+          <rect x="7" y="19" width="4" height="4" fill="#334155" />
+          <rect x="13" y="19" width="4" height="4" fill="#334155" />
+        </svg>
+      `;
+    }
+
+    function renderShop() {
+      shopWalletCoinsEl.textContent = state.walletCoins;
+      shopEquippedCountEl.textContent = state.equippedIds.length;
+      shopOwnedSummaryEl.textContent = `Sotib olingan: ${state.ownedIds.length} / 50 odamcha`;
+
+      document.querySelectorAll('.shop-filter-btn').forEach(btn => {
+        const active = btn.dataset.shopFilter === state.shopFilter;
+        btn.className = active
+          ? 'shop-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-slate-950'
+          : 'shop-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700';
+      });
+
+      const filtered = ALLIES_CATALOG.filter(ally => {
+        const isOwned = state.ownedIds.includes(ally.id);
+        const isEquipped = state.equippedIds.includes(ally.id);
+        if (state.shopFilter === 'owned') return isOwned;
+        if (state.shopFilter === 'equipped') return isEquipped;
+        return true;
+      });
+
+      shopGridEl.innerHTML = '';
+
+      if (filtered.length === 0) {
+        shopGridEl.innerHTML = `
+          <div class="col-span-full text-center py-10 text-slate-400 text-sm">
+            Bu filtr bo'yicha odamcha topilmadi. O'yinda tanga yig'ib, yangi odamchalar sotib oling!
+          </div>
+        `;
+        return;
+      }
+
+      filtered.forEach(ally => {
+        const isOwned = state.ownedIds.includes(ally.id);
+        const isEquipped = state.equippedIds.includes(ally.id);
+        const canAfford = state.walletCoins >= ally.price;
+
+        const card = document.createElement('div');
+        card.className = `rounded-xl p-3 border flex flex-col justify-between gap-2.5 transition ${
+          isEquipped
+            ? 'bg-emerald-950/45 border-emerald-400/60'
+            : isOwned
+              ? 'bg-slate-800/90 border-sky-500/40'
+              : 'bg-slate-800/60 border-slate-700/80'
+        }`;
+
+        card.innerHTML = `
+          <div class="flex items-start gap-2.5">
+            ${renderAllyAvatarSVG(ally)}
+            <div class="min-w-0 flex-1">
+              <div class="text-[10px] font-bold text-slate-400">#${ally.number} • ${ally.role}</div>
+              <div class="text-xs sm:text-sm font-extrabold text-white truncate">${ally.name}</div>
+              <div class="text-[11px] text-sky-300 mt-0.5">
+                Otish tezligi: <span class="font-bold text-white">${ally.fireRate}s</span>
+              </div>
+            </div>
+          </div>
+        `;
+
+        const actionBtn = document.createElement('button');
+        actionBtn.type = 'button';
+
+        if (!isOwned) {
+          actionBtn.className = canAfford
+            ? 'arcade-btn w-full py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs'
+            : 'w-full py-2 rounded-lg bg-slate-700/60 text-slate-400 font-bold text-xs cursor-not-allowed';
+          actionBtn.textContent = `Sotib olish • 💰 ${ally.price}`;
+          actionBtn.disabled = !canAfford;
+          actionBtn.addEventListener('click', () => {
+            if (state.walletCoins < ally.price || state.ownedIds.includes(ally.id)) return;
+            state.walletCoins -= ally.price;
+            state.ownedIds.push(ally.id);
+            if (state.equippedIds.length < MAX_EQUIPPED_ALLIES) {
+              state.equippedIds.push(ally.id);
+              syncActiveAllies();
+            }
+            persistState();
+            updateHUD();
+            sound.buy();
+            renderShop();
+          });
+        } else if (isEquipped) {
+          actionBtn.className = 'arcade-btn w-full py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs';
+          actionBtn.textContent = '✓ Jamoaadа (Olib tashlash)';
+          actionBtn.addEventListener('click', () => {
+            state.equippedIds = state.equippedIds.filter(id => id !== ally.id);
+            syncActiveAllies();
+            persistState();
+            updateHUD();
+            renderShop();
+          });
+        } else {
+          const fullParty = state.equippedIds.length >= MAX_EQUIPPED_ALLIES;
+          actionBtn.className = !fullParty
+            ? 'arcade-btn w-full py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs'
+            : 'w-full py-2 rounded-lg bg-slate-700 text-slate-400 font-semibold text-xs cursor-not-allowed';
+          actionBtn.textContent = !fullParty ? '+ Jamoaga qo\'shish' : 'Jamoa to\'la (6/6)';
+          actionBtn.disabled = fullParty;
+          actionBtn.addEventListener('click', () => {
+            if (state.equippedIds.includes(ally.id) || state.equippedIds.length >= MAX_EQUIPPED_ALLIES) return;
+            state.equippedIds.push(ally.id);
+            syncActiveAllies();
+            persistState();
+            updateHUD();
+            sound.checkpoint();
+            renderShop();
+          });
+        }
+
+        card.appendChild(actionBtn);
+        shopGridEl.appendChild(card);
+      });
+    }
+
+    function openShop() {
+      renderShop();
+      shopModal.classList.remove('hidden');
+    }
+
+    function closeShop() {
+      shopModal.classList.add('hidden');
+    }
+
+    openShopBtn.addEventListener('click', openShop);
+    modalShopBtn.addEventListener('click', openShop);
+    closeShopBtn.addEventListener('click', closeShop);
+
+    document.querySelectorAll('.shop-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.shopFilter = btn.dataset.shopFilter;
+        renderShop();
+      });
+    });
+
+    // --- 10. 500+ BOSQICH TANLASH MODALI ---
+    function jumpToLevel(lvlNum) {
+      const safeLvl = Math.max(1, Math.min(999, Math.floor(Number(lvlNum) || 1)));
+      levelsModal.classList.add('hidden');
+      hideModal();
+      transitionOverlay.classList.add('hidden');
+      loadLevel(safeLvl, false);
+      state.mode = 'playing';
+      sound.jump(false);
+    }
+
+    openLevelsBtn.addEventListener('click', () => {
+      customLevelInput.value = state.levelNumber;
+      levelsModal.classList.remove('hidden');
+    });
+
+    closeLevelsBtn.addEventListener('click', () => {
+      levelsModal.classList.add('hidden');
+    });
+
+    document.querySelectorAll('.jump-lvl-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        jumpToLevel(btn.dataset.jumpLevel);
+      });
+    });
+
+    customLevelForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      jumpToLevel(customLevelInput.value);
+    });
+
+    // --- 11. MODAL VA BOSHQARUV ---
+    function showModal({ badge, title, desc, primaryText, secondaryText = null, onPrimary, onSecondary = null }) {
+      modalBadge.textContent = badge;
+      modalTitle.textContent = title;
+      modalDesc.textContent = desc;
+
+      statCoinsEl.textContent = `${state.coinsCollected} (💰${state.walletCoins})`;
+      statScoreEl.textContent = state.score;
+      statTimeEl.textContent = `${Math.max(0, Math.ceil(state.timeLeft))}s`;
+
+      primaryActionBtn.textContent = primaryText;
+      primaryActionBtn.onclick = () => {
+        if (onPrimary) onPrimary();
+      };
+
+      if (secondaryText) {
+        secondaryActionBtn.textContent = secondaryText;
+        secondaryActionBtn.classList.remove('hidden');
+        secondaryActionBtn.onclick = () => {
+          if (onSecondary) onSecondary();
+        };
+      } else {
+        secondaryActionBtn.classList.add('hidden');
+        secondaryActionBtn.onclick = null;
+      }
+
+      modalOverlay.classList.remove('hidden');
+    }
+
+    function hideModal() {
+      modalOverlay.classList.add('hidden');
+    }
+
+    function triggerJump() {
+      if (state.mode !== 'playing') return;
+      state.input.jumpJustPressed = true;
+      state.player.jumpBufferTimer = 0.14;
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space', ' '].includes(e.key)) {
+        e.preventDefault();
+      }
+
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        state.input.left = true;
+        btnLeft.classList.add('is-pressed');
+      }
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        state.input.right = true;
+        btnRight.classList.add('is-pressed');
+      }
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === ' ') {
+        if (!e.repeat) {
+          triggerJump();
+        }
+        btnJump.classList.add('is-pressed');
+      }
+      if ((e.key === 'r' || e.key === 'R') && !e.repeat) {
+        if (state.mode === 'playing' || state.mode === 'game_over') {
+          startNewGame();
+        }
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        state.input.left = false;
+        btnLeft.classList.remove('is-pressed');
+      }
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        state.input.right = false;
+        btnRight.classList.remove('is-pressed');
+      }
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === ' ') {
+        btnJump.classList.remove('is-pressed');
+      }
+    });
+
+    function bindHoldButton(el, onDown, onUp) {
+      const downHandler = (e) => {
+        e.preventDefault();
+        el.classList.add('is-pressed');
+        onDown();
+      };
+      const upHandler = (e) => {
+        e.preventDefault();
+        el.classList.remove('is-pressed');
+        onUp();
+      };
+
+      el.addEventListener('pointerdown', downHandler);
+      el.addEventListener('pointerup', upHandler);
+      el.addEventListener('pointerleave', upHandler);
+      el.addEventListener('pointercancel', upHandler);
+    }
+
+    bindHoldButton(btnLeft, () => { state.input.left = true; }, () => { state.input.left = false; });
+    bindHoldButton(btnRight, () => { state.input.right = true; }, () => { state.input.right = false; });
+    btnJump.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      btnJump.classList.add('is-pressed');
+      triggerJump();
+    });
+    btnJump.addEventListener('pointerup', () => btnJump.classList.remove('is-pressed'));
+    btnJump.addEventListener('pointerleave', () => btnJump.classList.remove('is-pressed'));
+
+    soundToggleBtn.addEventListener('click', () => {
+      sound.setMuted(!sound.muted);
+      soundIcon.textContent = sound.muted ? '🔇' : '🔊';
+      if (!sound.muted) sound.coin();
+    });
+
+    function startNewGame() {
+      hideModal();
+      shopModal.classList.add('hidden');
+      levelsModal.classList.add('hidden');
+      transitionOverlay.classList.add('hidden');
+      loadLevel(1, true);
+      state.mode = 'playing';
+      sound.jump(false);
+    }
+
+    quickRestartBtn.addEventListener('click', startNewGame);
+
+    // --- 12. ZARRACHALAR VA SUZUVCHI MATNLAR ---
+    function spawnParticles(x, y, color, count = 10, speedScale = 1) {
+      for (let i = 0; i < count; i++) {
+        const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+        const speed = (60 + Math.random() * 140) * speedScale;
+        state.particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - 40,
+          size: 4 + Math.floor(Math.random() * 4),
+          color,
+          life: 0.45 + Math.random() * 0.25,
+          maxLife: 0.7
+        });
+      }
+    }
+
+    function addFloatingText(x, y, text, color = '#fde047') {
+      state.floatingTexts.push({
+        x,
+        y,
+        vy: -48,
+        text,
+        color,
+        life: 0.85,
+        maxLife: 0.85
+      });
+    }
+
+    // --- 13. FIZIKA, ODAMCHALAR AI VA BOSQICHLAR LOGIKASI ---
+    function damagePlayer(reasonText) {
+      const p = state.player;
+      if (p.invulnTimer > 0 || state.mode !== 'playing') return;
+
+      state.lives -= 1;
+      updateHUD();
+      sound.hurt();
+      spawnParticles(p.x + p.w / 2, p.y + p.h / 2, '#ef4444', 14, 1.1);
+
+      if (state.lives <= 0) {
+        persistState();
+        state.mode = 'game_over';
+        sound.gameOver();
+        showModal({
+          badge: `Bosqich ${state.levelNumber} • O'yin Tugadi`,
+          title: 'GAME OVER',
+          desc: reasonText || 'Barcha yuraklaringiz tugadi. Yig\'ilgan pulingizga yangi odamchalar olib, yana urinib ko\'ring!',
+          primaryText: '1-Bosqichdan Boshlash',
+          onPrimary: startNewGame
+        });
+      } else {
+        if (state.activeCheckpoint) {
+          p.x = state.activeCheckpoint.x - p.w * 0.5;
+          p.y = state.activeCheckpoint.y - p.h - 6;
+        } else {
+          const lvl = state.currentLevel;
+          p.x = lvl.spawn.x;
+          p.y = lvl.spawn.y;
+        }
+        p.vx = 0;
+        p.vy = 0;
+        p.coyoteTimer = 0;
+        p.jumpBufferTimer = 0;
+        p.jumpsUsed = 0;
+        p.invulnTimer = 1.65;
+        syncActiveAllies();
+        addFloatingText(p.x + p.w / 2, p.y - 12, 'RESPAWN', '#fca5a5');
+      }
+    }
+
+    function handleLevelComplete() {
+      const timeBonus = Math.max(0, Math.ceil(state.timeLeft)) * 10;
+      const levelBonus = state.levelNumber * 200;
+      const coinBonus = 15 + state.levelNumber * 2;
+      state.score += timeBonus + levelBonus;
+      state.walletCoins += coinBonus;
+
+      const nextLevelNum = state.levelNumber + 1;
+      state.highestLevel = Math.max(state.highestLevel, nextLevelNum);
+      persistState();
+      updateHUD();
+
+      const previewNext = buildLevel(nextLevelNum);
+      sound.win();
+      addFloatingText(state.goal.x, state.goal.y - 24, `+${coinBonus} PUL!`, '#fde047');
+
+      state.mode = 'transitioning';
+      state.transitionTimer = 1.25;
+      transitionLevelText.textContent = previewNext.name;
+      transitionSubText.textContent = `Masofa: ${Math.round(previewNext.worldWidth / 100)}m • +${coinBonus} Pul mukofoti • ${previewNext.enemies.length} dushman`;
+      transitionOverlay.classList.remove('hidden');
+    }
+
+    function updatePlatforms(dt) {
+      for (const plat of state.platforms) {
+        const prevX = plat.x;
+        const prevY = plat.y;
+
+        if (plat.moveAxis === 'x') {
+          plat.movePhase += dt * plat.moveSpeed;
+          plat.x = plat.baseX + Math.sin(plat.movePhase) * plat.moveRange;
+        } else if (plat.moveAxis === 'y') {
+          plat.movePhase += dt * plat.moveSpeed;
+          plat.y = plat.baseY + Math.sin(plat.movePhase) * plat.moveRange;
+        }
+
+        plat.dx = plat.x - prevX;
+        plat.dy = plat.y - prevY;
+      }
+    }
+
+    function updateAlliesAndProjectiles(dt) {
+      const p = state.player;
+      const pCenterX = p.x + p.w / 2;
+
+      for (const ally of state.allies) {
+        ally.animPhase += dt * 8;
+        ally.attackCooldown = Math.max(0, ally.attackCooldown - dt);
+
+        // Odamcha qahramon ortidan o'z pozitsiyasida (slot 1..6) ergashadi
+        const followOffset = -p.facing * (34 + ally.slot * 28);
+        const desiredX = Math.max(10, Math.min(state.worldWidth - ally.w - 10, p.x + followOffset));
+        const dx = desiredX - ally.x;
+
+        ally.vx = Math.max(-390, Math.min(390, dx * 6.5));
+        if (Math.abs(dx) > 6) {
+          ally.facing = dx > 0 ? 1 : -1;
+        } else {
+          ally.facing = p.facing;
+        }
+
+        // Agar qahramon sakragan bo'lsa yoki balandlik farqi katta bo'lsa, odamcha ham sakraydi
+        const heightDiff = (p.y + p.h) - (ally.y + ally.h);
+        if (ally.onGround && (heightDiff < -24 || (!p.onGround && p.vy < -180 && Math.abs(dx) < 190))) {
+          ally.vy = -640;
+          ally.onGround = false;
+        }
+
+        ally.vy = Math.min(980, ally.vy + 1680 * dt);
+        ally.x += ally.vx * dt;
+
+        const prevAllyBottom = ally.y + ally.h;
+        ally.y += ally.vy * dt;
+        ally.onGround = false;
+
+        if (ally.vy >= 0) {
+          for (const plat of state.platforms) {
+            const withinX = ally.x + ally.w - 4 > plat.x && ally.x + 4 < plat.x + plat.w;
+            if (withinX && prevAllyBottom <= plat.y + 16 && ally.y + ally.h >= plat.y) {
+              ally.y = plat.y - ally.h;
+              ally.vy = 0;
+              ally.onGround = true;
+              break;
+            }
+          }
+        }
+
+        // Jarlikka tushsa qahramon yoniga qaytadi
+        if (ally.y > VIEW_HEIGHT + 40) {
+          ally.x = Math.max(20, p.x - p.facing * 40);
+          ally.y = p.y - 20;
+          ally.vy = 0;
+        }
+
+        // Yaqin atrofdagi dushmanga avtomatik o'q uzish
+        if (ally.attackCooldown <= 0) {
+          let targetEnemy = null;
+          let bestDist = 470;
+          for (const enemy of state.enemies) {
+            if (!enemy.alive) continue;
+            const ex = enemy.x + enemy.w / 2;
+            const ey = enemy.y + enemy.h / 2;
+            const dist = Math.hypot(ex - (ally.x + ally.w / 2), ey - (ally.y + ally.h / 2));
+            if (dist < bestDist) {
+              bestDist = dist;
+              targetEnemy = enemy;
+            }
+          }
+
+          if (targetEnemy) {
+            const dir = targetEnemy.x + targetEnemy.w / 2 >= ally.x + ally.w / 2 ? 1 : -1;
+            ally.facing = dir;
+            ally.attackCooldown = ally.fireRate;
+            state.projectiles.push({
+              x: ally.x + ally.w / 2 + dir * 14,
+              y: ally.y + 14,
+              vx: dir * 560,
+              color: ally.projColor,
+              life: 1.0
+            });
+            sound.shoot();
+          }
+        }
+      }
+
+      // Snaryadlar harakati va dushmanlarga tegishi
+      for (let i = state.projectiles.length - 1; i >= 0; i--) {
+        const pr = state.projectiles[i];
+        pr.x += pr.vx * dt;
+        pr.life -= dt;
+
+        let hit = false;
+        for (const enemy of state.enemies) {
+          if (!enemy.alive) continue;
+          if (pr.x >= enemy.x - 6 && pr.x <= enemy.x + enemy.w + 6 && pr.y >= enemy.y - 6 && pr.y <= enemy.y + enemy.h + 6) {
+            enemy.hp -= 1;
+            hit = true;
+            spawnParticles(pr.x, pr.y, pr.color, 6, 0.75);
+            if (enemy.hp <= 0) {
+              enemy.alive = false;
+              state.score += 200;
+              state.walletCoins += 2;
+              sound.stomp();
+              spawnParticles(enemy.x + enemy.w / 2, enemy.y + enemy.h / 2, '#f97316', 12, 0.95);
+              addFloatingText(enemy.x + enemy.w / 2, enemy.y - 10, '+2 PUL', '#fde047');
+              updateHUD();
+            }
+            break;
+          }
+        }
+
+        if (hit || pr.life <= 0 || pr.x < 0 || pr.x > state.worldWidth) {
+          state.projectiles.splice(i, 1);
+        }
+      }
+    }
+
+    function updateGame(dt) {
+      state.elapsed += dt;
+
+      if (state.mode === 'transitioning') {
+        state.transitionTimer -= dt;
+        updateParticles(dt);
+        if (state.transitionTimer <= 0) {
+          transitionOverlay.classList.add('hidden');
+          loadLevel(state.levelNumber + 1, false);
+          state.mode = 'playing';
+        }
+        return;
+      }
+
+      if (state.mode !== 'playing') {
+        state.input.jumpJustPressed = false;
+        updateParticles(dt);
+        return;
+      }
+
+      updatePlatforms(dt);
+
+      // Taymerni kamaytirish
+      state.timeAccumulator += dt;
+      if (state.timeAccumulator >= 1) {
+        const secs = Math.floor(state.timeAccumulator);
+        state.timeAccumulator -= secs;
+        state.timeLeft -= secs;
+        hudTimeEl.textContent = Math.max(0, Math.ceil(state.timeLeft));
+
+        if (state.timeLeft <= 0) {
+          state.timeLeft = 0;
+          hudTimeEl.textContent = '0';
+          persistState();
+          state.mode = 'game_over';
+          sound.gameOver();
+          showModal({
+            badge: `Bosqich ${state.levelNumber} • Vaqt Tugadi`,
+            title: 'TIME IS UP',
+            desc: 'Belgilangan vaqt tugab qoldi. Yig\'ilgan pulingizga tezroq odamchalar oling yoki boshqa bosqichga o\'ting!',
+            primaryText: '1-Bosqichdan Boshlash',
+            onPrimary: startNewGame
+          });
+          return;
+        }
+      }
+
+      const p = state.player;
+      if (p.invulnTimer > 0) p.invulnTimer = Math.max(0, p.invulnTimer - dt);
+      if (p.coyoteTimer > 0) p.coyoteTimer = Math.max(0, p.coyoteTimer - dt);
+      if (p.jumpBufferTimer > 0) p.jumpBufferTimer = Math.max(0, p.jumpBufferTimer - dt);
+
+      const moveSpeed = 350;
+      const accel = p.onGround ? 2750 : 1850;
+      const friction = p.onGround ? 2450 : 780;
+
+      let dirX = 0;
+      if (state.input.left) dirX -= 1;
+      if (state.input.right) dirX += 1;
+
+      if (dirX !== 0) {
+        p.vx += dirX * accel * dt;
+        if (Math.abs(p.vx) > moveSpeed) p.vx = dirX * moveSpeed;
+        p.facing = dirX;
+      } else {
+        if (Math.abs(p.vx) <= friction * dt) p.vx = 0;
+        else p.vx -= Math.sign(p.vx) * friction * dt;
+      }
+
+      if (p.jumpBufferTimer > 0) {
+        if (p.onGround || p.coyoteTimer > 0) {
+          p.vy = -675;
+          p.onGround = false;
+          p.coyoteTimer = 0;
+          p.jumpBufferTimer = 0;
+          p.jumpsUsed = 1;
+          sound.jump(false);
+          spawnParticles(p.x + p.w / 2, p.y + p.h, '#e0f2fe', 7, 0.7);
+        } else if (p.jumpsUsed < p.maxJumps) {
+          p.vy = -625;
+          p.jumpBufferTimer = 0;
+          p.jumpsUsed += 1;
+          sound.jump(true);
+          spawnParticles(p.x + p.w / 2, p.y + p.h, '#bae6fd', 8, 0.8);
+        }
+      }
+      state.input.jumpJustPressed = false;
+
+      p.vy = Math.min(980, p.vy + 1680 * dt);
+
+      p.x += p.vx * dt;
+      if (p.x < 0) {
+        p.x = 0;
+        p.vx = 0;
+      }
+      if (p.x + p.w > state.worldWidth) {
+        p.x = state.worldWidth - p.w;
+        p.vx = 0;
+      }
+
+      const prevBottom = p.y + p.h;
+      p.y += p.vy * dt;
+      const wasOnGround = p.onGround;
+      p.onGround = false;
+      let standingPlatform = null;
+
+      if (p.vy >= 0) {
+        for (const plat of state.platforms) {
+          const withinX = p.x + p.w - 6 > plat.x && p.x + 6 < plat.x + plat.w;
+          const crossedTop = prevBottom <= plat.y + 16 + Math.max(0, -plat.dy) && p.y + p.h >= plat.y;
+          if (withinX && crossedTop) {
+            p.y = plat.y - p.h;
+            p.vy = 0;
+            p.onGround = true;
+            p.coyoteTimer = 0.11;
+            p.jumpsUsed = 0;
+            standingPlatform = plat;
+            break;
+          }
+        }
+      }
+
+      if (wasOnGround && !p.onGround && p.vy >= 0) {
+        p.coyoteTimer = 0.11;
+      }
+
+      if (standingPlatform && standingPlatform.dx) {
+        p.x += standingPlatform.dx;
+      }
+
+      const targetCamX = Math.max(
+        0,
+        Math.min(state.worldWidth - VIEW_WIDTH, p.x + p.w * 0.5 - VIEW_WIDTH * 0.36)
+      );
+      state.cameraX += (targetCamX - state.cameraX) * Math.min(1, dt * 8.5);
+
+      if (p.onGround && Math.abs(p.vx) > 25) {
+        p.runCycle += dt * (Math.abs(p.vx) / 28);
+      } else if (!p.onGround) {
+        state.trail.push({
+          x: p.x + p.w / 2 - p.facing * 8,
+          y: p.y + p.h - 4,
+          alpha: 0.75,
+          radius: 7
+        });
+      }
+
+      for (let i = state.trail.length - 1; i >= 0; i--) {
+        state.trail[i].alpha -= dt * 3.1;
+        state.trail[i].radius = Math.max(1.5, state.trail[i].radius - dt * 14);
+        if (state.trail[i].alpha <= 0) state.trail.splice(i, 1);
+      }
+
+      if (p.y > VIEW_HEIGHT + 45) {
+        damagePlayer('Pastdagi bo\'shliqqa tushib ketdingiz!');
+        return;
+      }
+
+      // Tikanli to'siqlar (Spikes)
+      for (const sp of state.spikes) {
+        if (p.x + p.w - 6 > sp.x && p.x + 6 < sp.x + sp.w && p.y + p.h > sp.y + 3 && p.y < sp.y + sp.h) {
+          damagePlayer('Tikanli to\'siqqa tegib ketdingiz!');
+          return;
+        }
+      }
+
+      // Tangalarni yig'ish (pul hamyoniga qo'shiladi)
+      const pCenterX = p.x + p.w / 2;
+      const pCenterY = p.y + p.h / 2;
+      for (const coin of state.coins) {
+        if (coin.collected) continue;
+        coin.bobPhase += dt * 4.5;
+        const bobY = coin.y + Math.sin(coin.bobPhase) * 4;
+        const dist = Math.hypot(pCenterX - coin.x, pCenterY - bobY);
+        if (dist < coin.r + 24) {
+          coin.collected = true;
+          state.coinsCollected += 1;
+          const gainedPul = coin.value || 1;
+          state.walletCoins += gainedPul;
+          state.score += gainedPul * 100;
+          persistState();
+          sound.coin();
+          spawnParticles(coin.x, bobY, '#fbbf24', 9, 0.8);
+          addFloatingText(coin.x, bobY - 12, `+${gainedPul} PUL`, '#fde047');
+          updateHUD();
+        }
+      }
+
+      // Checkpoint bayroqlar
+      for (const cp of state.checkpoints) {
+        if (cp.reached) continue;
+        if (Math.abs(pCenterX - cp.x) < 34 && Math.abs(p.y + p.h - cp.y) < 75) {
+          cp.reached = true;
+          state.activeCheckpoint = { x: cp.x, y: cp.y };
+          state.score += 150;
+          sound.checkpoint();
+          spawnParticles(cp.x, cp.y - 40, '#38bdf8', 12, 0.9);
+          addFloatingText(cp.x, cp.y - 58, 'CHECKPOINT!', '#7dd3fc');
+          updateHUD();
+        }
+      }
+
+      // Odamchalar AI va o'qlar
+      updateAlliesAndProjectiles(dt);
+
+      // Dushmanlar harakati va to'qnashuvi
+      for (const enemy of state.enemies) {
+        if (!enemy.alive) continue;
+        enemy.animPhase += dt * 7;
+
+        const enemyCenter = enemy.x + enemy.w * 0.5;
+        const distToPlayerX = pCenterX - enemyCenter;
+        const sameBandY = Math.abs((p.y + p.h) - (enemy.y + enemy.h)) < 85;
+
+        let currentSpeed = enemy.speed;
+        if (enemy.chase && sameBandY && Math.abs(distToPlayerX) < enemy.chaseRange && Math.abs(distToPlayerX) > 12) {
+          enemy.dir = Math.sign(distToPlayerX);
+          currentSpeed = enemy.speed * 1.28;
+        }
+
+        enemy.x += enemy.dir * currentSpeed * dt;
+
+        if (enemy.x <= enemy.minX) {
+          enemy.x = enemy.minX;
+          enemy.dir = 1;
+        } else if (enemy.x + enemy.w >= enemy.maxX) {
+          enemy.x = enemy.maxX - enemy.w;
+          enemy.dir = -1;
+        }
+
+        const overlapX = p.x + p.w - 5 > enemy.x && p.x + 5 < enemy.x + enemy.w;
+        const overlapY = p.y + p.h > enemy.y && p.y < enemy.y + enemy.h;
+
+        if (overlapX && overlapY) {
+          const isStomp = p.vy > 0 && prevBottom <= enemy.y + enemy.h * 0.62;
+          if (isStomp) {
+            enemy.hp -= 1;
+            p.vy = -530;
+            p.jumpsUsed = 1;
+            sound.stomp();
+            if (enemy.hp <= 0) {
+              enemy.alive = false;
+              const pts = enemy.chase ? 350 : 250;
+              state.score += pts;
+              state.walletCoins += 3;
+              persistState();
+              spawnParticles(enemy.x + enemy.w / 2, enemy.y + enemy.h / 2, '#f97316', 14, 1.0);
+              addFloatingText(enemy.x + enemy.w / 2, enemy.y - 10, `+${pts} • +3 PUL`, '#fdba74');
+            } else {
+              addFloatingText(enemy.x + enemy.w / 2, enemy.y - 10, 'HIT!', '#fca5a5');
+            }
+            updateHUD();
+          } else {
+            damagePlayer('Dushman bilan to\'qnashdingiz! Ustidan sakrab o\'ting.');
+            return;
+          }
+        }
+      }
+
+      // Yakuniy bayroqqa yetish
+      const goalBox = { x: state.goal.x - 18, y: state.goal.y - 60, w: 54, h: 86 };
+      const reachedGoal =
+        p.x + p.w > goalBox.x &&
+        p.x < goalBox.x + goalBox.w &&
+        p.y + p.h > goalBox.y &&
+        p.y < goalBox.y + goalBox.h;
+
+      if (reachedGoal) {
+        handleLevelComplete();
+      }
+
+      updateParticles(dt);
+    }
+
+    function updateParticles(dt) {
+      for (let i = state.particles.length - 1; i >= 0; i--) {
+        const pt = state.particles[i];
+        pt.life -= dt;
+        pt.x += pt.vx * dt;
+        pt.y += pt.vy * dt;
+        pt.vy += 420 * dt;
+        if (pt.life <= 0) {
+          state.particles.splice(i, 1);
+        }
+      }
+
+      for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
+        const ft = state.floatingTexts[i];
+        ft.life -= dt;
+        ft.y += ft.vy * dt;
+        if (ft.life <= 0) {
+          state.floatingTexts.splice(i, 1);
+        }
+      }
+    }
+
+    // --- 14. PIKSEL-ART CHIZISH FUNKSIYALARI ---
+    function pxRect(x, y, w, h, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+    }
+
+    function drawSkyAndScenery() {
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, VIEW_HEIGHT);
+      skyGrad.addColorStop(0, '#3ca8f6');
+      skyGrad.addColorStop(0.55, '#76cbfc');
+      skyGrad.addColorStop(1, '#bce8ff');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
+
+      // Quyosh nuri (kamera siljishiga mos parallax)
+      const sunX = 875 - (state.cameraX * 0.04) % 450;
+      const sunY = 145;
+      const sunGlow = ctx.createRadialGradient(sunX, sunY, 12, sunX, sunY, 170);
+      sunGlow.addColorStop(0, 'rgba(255, 252, 210, 0.95)');
+      sunGlow.addColorStop(0.35, 'rgba(255, 246, 175, 0.42)');
+      sunGlow.addColorStop(1, 'rgba(255, 246, 175, 0)');
+      ctx.fillStyle = sunGlow;
+      ctx.beginPath();
+      ctx.arc(sunX, sunY, 170, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Uzoqdagi yashil tepaliklar (parallax 0.18)
+      const hillShift1 = -(state.cameraX * 0.18) % 640;
+      ctx.fillStyle = '#5eb88e';
+      for (let base = hillShift1 - 640; base <= VIEW_WIDTH + 640; base += 640) {
+        ctx.beginPath();
+        ctx.moveTo(base, 520);
+        ctx.quadraticCurveTo(base + 160, 420, base + 320, 495);
+        ctx.quadraticCurveTo(base + 480, 560, base + 640, 465);
+        ctx.lineTo(base + 640, VIEW_HEIGHT);
+        ctx.lineTo(base, VIEW_HEIGHT);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Ikkinchi qatlam tepaliklar (parallax 0.28)
+      const hillShift2 = -(state.cameraX * 0.28) % 640;
+      ctx.fillStyle = '#479f79';
+      for (let base = hillShift2 - 640; base <= VIEW_WIDTH + 640; base += 640) {
+        ctx.beginPath();
+        ctx.moveTo(base, 565);
+        ctx.quadraticCurveTo(base + 180, 475, base + 360, 548);
+        ctx.quadraticCurveTo(base + 500, 605, base + 640, 520);
+        ctx.lineTo(base + 640, VIEW_HEIGHT);
+        ctx.lineTo(base, VIEW_HEIGHT);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Fon suzuvchi orolchalar va daraxtlar (parallax 0.22)
+      const islandShift = -(state.cameraX * 0.22) % 720;
+      for (let base = islandShift - 720; base <= VIEW_WIDTH + 720; base += 720) {
+        drawBackgroundIsland(base + 365, 265, 0.62, true);
+        drawBackgroundIsland(base + 640, 225, 0.54, true);
+        drawBackgroundIsland(base + 165, 420, 0.45, false);
+      }
+
+      // Bulutlar (parallax 0.14)
+      const drift = Math.sin(state.elapsed * 0.25) * 14;
+      const cloudShift = -(state.cameraX * 0.14) % 800;
+      for (let base = cloudShift - 800; base <= VIEW_WIDTH + 800; base += 800) {
+        drawPixelCloud(base + 180 + drift, 125, 1.15);
+        drawPixelCloud(base + 490 - drift * 0.7, 155, 0.95);
+        drawPixelCloud(base + 730 + drift * 0.8, 118, 1.15);
+      }
+
+      // Pastki bulutli dengiz
+      ctx.fillStyle = 'rgba(235, 249, 255, 0.85)';
+      for (let x = -40; x <= VIEW_WIDTH + 40; x += 95) {
+        const yOff = Math.sin(state.elapsed * 1.4 + (x + state.cameraX) * 0.02) * 5;
+        ctx.beginPath();
+        ctx.arc(x, VIEW_HEIGHT - 12 + yOff, 52, Math.PI, 0);
+        ctx.fill();
+      }
+    }
+
+    function drawPixelCloud(x, y, scale) {
+      ctx.save();
+      ctx.translate(Math.round(x), Math.round(y));
+      ctx.scale(scale, scale);
+
+      pxRect(-56, 10, 116, 22, '#cbe9fc');
+      pxRect(-62, -2, 128, 22, '#ffffff');
+      pxRect(-42, -20, 44, 22, '#ffffff');
+      pxRect(-6, -28, 52, 30, '#ffffff');
+      pxRect(32, -14, 34, 18, '#ffffff');
+
+      pxRect(-28, -16, 14, 6, '#f0f9ff');
+      pxRect(6, -22, 18, 6, '#f0f9ff');
+      ctx.restore();
+    }
+
+    function drawBackgroundIsland(x, y, scale, withTree) {
+      ctx.save();
+      ctx.translate(Math.round(x), Math.round(y));
+      ctx.scale(scale, scale);
+
+      if (withTree) {
+        pxRect(18, -36, 12, 26, '#7c4a27');
+        pxRect(4, -56, 40, 24, '#3b8c52');
+        pxRect(10, -64, 28, 12, '#57b36b');
+      }
+
+      pxRect(-55, -10, 120, 18, '#5eb84c');
+      pxRect(-46, 8, 102, 22, '#8a522b');
+      pxRect(-32, 30, 74, 16, '#693b1d');
+      pxRect(-14, 46, 38, 12, '#4d2912');
+
+      ctx.restore();
+    }
+
+    function drawPlatforms() {
+      for (const plat of state.platforms) {
+        if (plat.x + plat.w < state.cameraX - 120 || plat.x > state.cameraX + VIEW_WIDTH + 120) {
+          continue;
+        }
+        const { x, y, w, h, kind, vines = [], bushes = [], moveAxis } = plat;
+
+        pxRect(x, y + 14, w, h - 14, '#7d4823');
+        pxRect(x + 6, y + 24, w - 12, h - 24, '#653718');
+
+        for (let tx = x + 24; tx < x + w - 36; tx += 78) {
+          pxRect(tx, y + 36, 24, 16, '#4f2910');
+          pxRect(tx + 4, y + 38, 14, 8, '#966b47');
+        }
+
+        if (kind === 'floating' || moveAxis) {
+          pxRect(x + 16, y + h - 8, w - 32, 12, '#653718');
+          pxRect(x + 34, y + h + 4, Math.max(16, w - 68), 10, '#4f2910');
+        }
+
+        for (const vx of vines) {
+          const vineLen = 28 + ((Math.round(vx) * 7) % 34);
+          pxRect(x + vx, y + 14, 5, vineLen, '#2d8a4e');
+          for (let ly = 18; ly < vineLen + 10; ly += 10) {
+            pxRect(x + vx - 3, y + ly, 4, 6, '#45b664');
+            pxRect(x + vx + 4, y + ly + 3, 4, 6, '#349b52');
+          }
+        }
+
+        pxRect(x - 3, y - 2, w + 6, 16, '#58b446');
+        pxRect(x, y, w, 10, '#72cf57');
+        pxRect(x + 4, y + 2, w - 8, 4, '#9be876');
+
+        for (let gx = x + 8; gx < x + w - 10; gx += 18) {
+          pxRect(gx, y + 12, 6, 6, '#58b446');
+        }
+
+        for (const bx of bushes) {
+          const bPos = x + bx;
+          if (bPos > x + 12 && bPos < x + w - 38) {
+            pxRect(bPos, y - 10, 26, 12, '#3b9645');
+            pxRect(bPos + 4, y - 16, 18, 8, '#55b858');
+            pxRect(bPos + 8, y - 19, 10, 4, '#79d66d');
+          }
+        }
+
+        if (moveAxis) {
+          pxRect(x + 8, y + 4, 8, 4, '#fde047');
+          pxRect(x + w - 16, y + 4, 8, 4, '#fde047');
+        }
+      }
+    }
+
+    function drawSpikes() {
+      for (const sp of state.spikes) {
+        if (sp.x + sp.w < state.cameraX - 60 || sp.x > state.cameraX + VIEW_WIDTH + 60) continue;
+        const count = Math.max(2, Math.floor(sp.w / 12));
+        const sw = sp.w / count;
+        for (let i = 0; i < count; i++) {
+          const sx = sp.x + i * sw;
+          ctx.fillStyle = '#e2e8f0';
+          ctx.beginPath();
+          ctx.moveTo(sx, sp.y + sp.h);
+          ctx.lineTo(sx + sw * 0.5, sp.y);
+          ctx.lineTo(sx + sw, sp.y + sp.h);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = '#475569';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
+      }
+    }
+
+    function drawCoins() {
+      for (const coin of state.coins) {
+        if (coin.collected) continue;
+        if (coin.x < state.cameraX - 60 || coin.x > state.cameraX + VIEW_WIDTH + 60) continue;
+
+        const bobY = coin.y + Math.sin(coin.bobPhase) * 4;
+        const spinScale = Math.max(0.35, Math.abs(Math.cos(coin.bobPhase * 0.7)));
+        const cw = Math.round(20 * spinScale);
+        const ch = 26;
+        const cx = Math.round(coin.x - cw / 2);
+        const cy = Math.round(bobY - ch / 2);
+
+        pxRect(cx - 2, cy - 2, cw + 4, ch + 4, '#78350f');
+        pxRect(cx, cy, cw, ch, '#f59e0b');
+        pxRect(cx + 2, cy + 2, Math.max(2, cw - 4), ch - 4, '#fde047');
+
+        if (cw >= 8) {
+          pxRect(Math.round(coin.x - 2), cy + 5, 4, ch - 10, '#d97706');
+        }
+      }
+    }
+
+    function drawCheckpoints() {
+      for (const cp of state.checkpoints) {
+        if (cp.x < state.cameraX - 80 || cp.x > state.cameraX + VIEW_WIDTH + 80) continue;
+        const cx = Math.round(cp.x);
+        const cy = Math.round(cp.y);
+
+        pxRect(cx - 2, cy - 58, 5, 58, '#cbd5e1');
+        if (cp.reached) {
+          const flutter = Math.sin(state.elapsed * 8) * 3;
+          pxRect(cx + 3, cy - 56, 24, 16, '#0284c7');
+          pxRect(cx + 5, cy - 54 + flutter * 0.3, 18, 10, '#38bdf8');
+        } else {
+          pxRect(cx + 3, cy - 56, 22, 15, '#64748b');
+          pxRect(cx + 5, cy - 54, 16, 9, '#94a3b8');
+        }
+      }
+    }
+
+    function drawEnemies() {
+      for (const enemy of state.enemies) {
+        if (!enemy.alive) continue;
+        if (enemy.x + enemy.w < state.cameraX - 80 || enemy.x > state.cameraX + VIEW_WIDTH + 80) continue;
+
+        const step = Math.sin(enemy.animPhase) * 3;
+        const ex = Math.round(enemy.x);
+        const ey = Math.round(enemy.y);
+
+        const bodyColor = enemy.chase ? '#dc2626' : '#ea580c';
+        const capColor = enemy.chase ? '#f87171' : '#fb923c';
+
+        pxRect(ex + 3, ey + 2, enemy.w - 6, enemy.h - 10, bodyColor);
+        pxRect(ex + 6, ey, enemy.w - 12, 8, capColor);
+
+        if (enemy.chase) {
+          // Quvuvchi dushmanda kichik shoxchalar
+          pxRect(ex + 5, ey - 5, 5, 6, '#fde047');
+          pxRect(ex + enemy.w - 10, ey - 5, 5, 6, '#fde047');
+        }
+
+        const eyeOffsetX = enemy.dir > 0 ? 4 : -2;
+        pxRect(ex + 8 + eyeOffsetX, ey + 10, 5, 6, '#ffffff');
+        pxRect(ex + 19 + eyeOffsetX, ey + 10, 5, 6, '#ffffff');
+        pxRect(ex + 10 + eyeOffsetX + (enemy.dir > 0 ? 1 : 0), ey + 12, 3, 4, '#0f172a');
+        pxRect(ex + 21 + eyeOffsetX + (enemy.dir > 0 ? 1 : 0), ey + 12, 3, 4, '#0f172a');
+
+        pxRect(ex + 11 + eyeOffsetX, ey + 7, 14, 2, '#450a0a');
+
+        pxRect(ex + 5 + step, ey + enemy.h - 8, 9, 8, '#7c2d12');
+        pxRect(ex + enemy.w - 14 - step, ey + enemy.h - 8, 9, 8, '#7c2d12');
+
+        if (enemy.maxHp > 1 && enemy.hp > 0) {
+          const barW = enemy.w;
+          const fillW = Math.max(2, Math.round((enemy.hp / enemy.maxHp) * barW));
+          pxRect(ex, ey - 10, barW, 4, '#0f172a');
+          pxRect(ex, ey - 10, fillW, 4, '#ef4444');
+        }
+      }
+    }
+
+    function drawAlliesAndProjectiles() {
+      for (const ally of state.allies) {
+        if (ally.x + ally.w < state.cameraX - 60 || ally.x > state.cameraX + VIEW_WIDTH + 60) continue;
+        ctx.save();
+        const cx = Math.round(ally.x + ally.w / 2);
+        const bottomY = Math.round(ally.y + ally.h);
+        ctx.translate(cx, bottomY);
+        ctx.scale(ally.facing, 1);
+
+        const swing = ally.onGround && Math.abs(ally.vx) > 20 ? Math.sin(ally.animPhase) * 5 : 0;
+        pxRect(-9 - swing * 0.5, -11, 6, 6, ally.suitColor);
+        pxRect(3 + swing * 0.5, -11, 6, 6, ally.suitColor);
+        pxRect(-10 - swing * 0.5, -5, 7, 5, '#475569');
+        pxRect(3 + swing * 0.5, -5, 7, 5, '#475569');
+        pxRect(-9, -22, 18, 12, ally.suitColor);
+        pxRect(-8, -31, 16, 9, '#fed7aa');
+        pxRect(3, -28, 3, 4, '#0f172a');
+        pxRect(-10, -36, 20, 5, ally.hatColor);
+        pxRect(-7, -39, 14, 4, ally.trimColor);
+        ctx.restore();
+      }
+
+      for (const pr of state.projectiles) {
+        pxRect(pr.x - 6, pr.y - 3, 12, 6, '#0f172a');
+        pxRect(pr.x - 4, pr.y - 2, 8, 4, pr.color);
+      }
+    }
+
+    function drawGoalFlag() {
+      const gx = Math.round(state.goal.x);
+      const gy = Math.round(state.goal.y);
+
+      pxRect(gx - 14, gy + 68, 36, 12, '#64748b');
+      pxRect(gx - 10, gy + 64, 28, 6, '#94a3b8');
+
+      pxRect(gx + 2, gy - 12, 6, 80, '#e2e8f0');
+      pxRect(gx, gy - 18, 10, 8, '#fbbf24');
+
+      const wave = Math.sin(state.elapsed * 6) * 4;
+      pxRect(gx + 8, gy - 10, 34, 24, '#16a34a');
+      pxRect(gx + 12, gy - 6 + wave * 0.4, 26, 16, '#22c55e');
+      pxRect(gx + 18, gy - 2 + wave * 0.6, 10, 8, '#fde047');
+    }
+
+    function drawPlayer() {
+      const p = state.player;
+
+      for (const tr of state.trail) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, tr.alpha * 0.65);
+        ctx.fillStyle = '#e0f7ff';
+        ctx.beginPath();
+        ctx.arc(tr.x, tr.y, tr.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      if (p.invulnTimer > 0 && Math.floor(p.invulnTimer * 16) % 2 === 0) {
+        return;
+      }
+
+      ctx.save();
+      const cx = Math.round(p.x + p.w / 2);
+      const bottomY = Math.round(p.y + p.h);
+      ctx.translate(cx, bottomY);
+      ctx.scale(p.facing, 1);
+
+      const legSwing = p.onGround && Math.abs(p.vx) > 20 ? Math.sin(p.runCycle) * 7 : (!p.onGround ? 5 : 0);
+
+      pxRect(-14, -27, 6, 10, '#1d4ed8');
+      pxRect(-14, -18, 6, 5, '#fed7aa');
+
+      pxRect(-10 - legSwing * 0.6, -15, 8, 9, '#1e40af');
+      pxRect(-11 - legSwing * 0.6, -6, 10, 6, '#78350f');
+
+      pxRect(2 + legSwing * 0.6, -15, 8, 9, '#2563eb');
+      pxRect(2 + legSwing * 0.6, -6, 10, 6, '#92400e');
+
+      pxRect(-11, -29, 22, 15, '#2563eb');
+      pxRect(-11, -17, 22, 3, '#78350f');
+      pxRect(-3, -17, 6, 3, '#fbbf24');
+
+      pxRect(-10, -41, 21, 13, '#fed7aa');
+      pxRect(-10, -42, 6, 10, '#78350f');
+      pxRect(5, -36, 3, 5, '#0f172a');
+      pxRect(6, -35, 1, 2, '#ffffff');
+
+      pxRect(-12, -47, 25, 6, '#dc2626');
+      pxRect(-9, -51, 18, 5, '#ef4444');
+      pxRect(6, -44, 10, 3, '#b91c1c');
+
+      pxRect(6, -27 + legSwing * 0.4, 6, 10, '#3b82f6');
+      pxRect(6, -18 + legSwing * 0.4, 6, 5, '#ffedd5');
+
+      ctx.restore();
+    }
+
+    function drawParticlesAndTexts() {
+      for (const pt of state.particles) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, pt.life / pt.maxLife);
+        pxRect(pt.x - pt.size / 2, pt.y - pt.size / 2, pt.size, pt.size, pt.color);
+        ctx.restore();
+      }
+
+      for (const ft of state.floatingTexts) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, ft.life / ft.maxLife);
+        ctx.font = 'bold 14px "Press Start 2P", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#0f172a';
+        ctx.fillText(ft.text, Math.round(ft.x) + 2, Math.round(ft.y) + 2);
+        ctx.fillStyle = ft.color;
+        ctx.fillText(ft.text, Math.round(ft.x), Math.round(ft.y));
+        ctx.restore();
+      }
+    }
+
+    function render() {
+      resizeCanvas();
+
+      const scaleX = canvas.width / VIEW_WIDTH;
+      const scaleY = canvas.height / VIEW_HEIGHT;
+
+      ctx.save();
+      ctx.scale(scaleX, scaleY);
+
+      drawSkyAndScenery();
+
+      ctx.save();
+      ctx.translate(-Math.round(state.cameraX), 0);
+
+      drawGoalFlag();
+      drawCheckpoints();
+      drawPlatforms();
+      drawSpikes();
+      drawCoins();
+      drawEnemies();
+      drawAlliesAndProjectiles();
+      drawPlayer();
+      drawParticlesAndTexts();
+
+      ctx.restore();
+      ctx.restore();
+    }
+
+    // --- 15. ASOSIY ANIMATSIYA TSIKLI ---
+    let lastTime = 0;
+
+    function gameLoop(timestamp) {
+      if (!lastTime) lastTime = timestamp;
+      const rawDt = (timestamp - lastTime) / 1000;
+      lastTime = timestamp;
+
+      const dt = Math.min(rawDt, 0.05);
+
+      updateGame(dt);
+      render();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    loadLevel(1, true);
+    showModal({
+      badge: 'Sky High Platformer • 500+ Bosqich & 50 Odamcha',
+      title: 'PIXEL ADVENTURE',
+      desc: '1 dan 500+ gacha uzayuvchi va qiyinlashuvchi bosqichlardan o\'ting! Terilgan pulga 50 ta odamcha sotib oling va 6 tagacha odamchani jamoaga qo\'shib birga kurashing.',
+      primaryText: 'O\'yinni Boshlash',
+      onPrimary: startNewGame
+    });
+
+    window.onload = function () {
+      requestAnimationFrame(gameLoop);
+    };
+  </script>
+</body>
+</html>
